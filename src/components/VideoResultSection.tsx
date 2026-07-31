@@ -37,15 +37,25 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
   const handleMainDownload = async () => {
     setIsDownloading(true);
     try {
-      const downloadEndpoint = `/api/download?id=${videoInfo.id}&format=${activeFormat}&title=${encodeURIComponent(videoInfo.title)}`;
-      
-      // Create temporary invisible anchor to trigger browser native download
-      const link = document.createElement('a');
-      link.href = downloadEndpoint;
-      link.setAttribute('download', `${videoInfo.title}.${activeFormat}`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const res = await fetch(`/api/get-link?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoInfo.id}`)}&format=${activeFormat}`);
+      const data = await res.json();
+
+      if (data && data.success) {
+        if (data.isDirectMedia && data.downloadUrl) {
+          // Direct media stream available! Trigger browser attachment download
+          const link = document.createElement('a');
+          link.href = data.downloadUrl + `&title=${encodeURIComponent(videoInfo.title)}`;
+          link.setAttribute('download', `${videoInfo.title}.${activeFormat}`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          // Fallback converter page
+          window.open(data.directUrl || mainMirrorUrl, '_blank', 'noopener,noreferrer');
+        }
+      } else {
+        window.open(mainMirrorUrl, '_blank', 'noopener,noreferrer');
+      }
     } catch (err) {
       console.warn('Download trigger error, fallback to mirror', err);
       window.open(mainMirrorUrl, '_blank', 'noopener,noreferrer');

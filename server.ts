@@ -41,10 +41,9 @@ async function getCobaltDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): Pro
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
   const instances = [
     'https://api.cobalt.tools',
-    'https://co.wuk.sh',
     'https://cobalt.api.scno.co',
-    'https://cobalt.qtf.im',
-    'https://api.v0.cobalt.tools'
+    'https://co.wuk.sh',
+    'https://cobalt.qtf.im'
   ];
 
   for (const instance of instances) {
@@ -54,20 +53,21 @@ async function getCobaltDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): Pro
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         },
         body: JSON.stringify({
           url: videoUrl,
           videoQuality: '720',
           downloadMode: format === 'mp3' ? 'audio' : 'video',
+          youtubeVideoCodec: 'h264',
           audioFormat: 'mp3',
         })
-      }, 4500);
+      }, 4000);
 
       if (res.ok) {
         const data = await res.json();
         if (data) {
-          if (typeof data.url === 'string' && data.url) {
+          if (typeof data.url === 'string' && data.url.startsWith('http')) {
             return data.url;
           }
           if (Array.isArray(data.picker) && data.picker.length > 0 && data.picker[0].url) {
@@ -76,7 +76,7 @@ async function getCobaltDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): Pro
         }
       }
     } catch (e) {
-      // ignore and try next instance
+      // ignore
     }
   }
   return null;
@@ -87,13 +87,13 @@ async function getInvidiousDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): 
   const invidiousInstances = [
     'https://invidious.nerdvpn.de',
     'https://inv.riverside.rocks',
-    'https://vid.puffyan.us',
-    'https://invidious.drgns.space'
+    'https://invidious.drgns.space',
+    'https://vid.puffyan.us'
   ];
 
   for (const instance of invidiousInstances) {
     try {
-      const res = await fetchWithTimeout(`${instance}/api/v1/videos/${videoId}`, {}, 4000);
+      const res = await fetchWithTimeout(`${instance}/api/v1/videos/${videoId}`, {}, 3500);
       if (res.ok) {
         const data = await res.json();
         if (format === 'mp3') {
@@ -102,12 +102,12 @@ async function getInvidiousDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): 
             if (audioStream?.url) return audioStream.url;
           }
         } else {
-          if (Array.isArray(data.formatStreams)) {
-            const videoStream = data.formatStreams.find((f: any) => f.url && f.qualityLabel);
+          if (Array.isArray(data.formatStreams) && data.formatStreams.length > 0) {
+            const videoStream = data.formatStreams.find((f: any) => f.url && f.container === 'mp4') || data.formatStreams[0];
             if (videoStream?.url) return videoStream.url;
           }
           if (Array.isArray(data.adaptiveFormats)) {
-            const videoStream = data.adaptiveFormats.find((f: any) => f.type?.includes('video') && f.url);
+            const videoStream = data.adaptiveFormats.find((f: any) => f.type?.includes('video/mp4') && f.url);
             if (videoStream?.url) return videoStream.url;
           }
         }
@@ -123,7 +123,13 @@ async function getInvidiousDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): 
 async function getYtdlDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): Promise<string | null> {
   try {
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const info = await ytdl.getInfo(videoUrl);
+    const info = await ytdl.getInfo(videoUrl, {
+      requestOptions: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        }
+      }
+    });
     if (format === 'mp3') {
       const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
       if (audioFormats.length > 0 && audioFormats[0].url) {
@@ -156,7 +162,6 @@ app.get('/api/get-link', async (req, res) => {
 
   const fmt = format === 'mp3' ? 'mp3' : 'mp4';
 
-  // Strategy order: Cobalt -> Invidious -> ytdl-core -> Fallback web mirror
   let directUrl = await getCobaltDownloadUrl(videoId, fmt);
   if (!directUrl) {
     directUrl = await getInvidiousDownloadUrl(videoId, fmt);
@@ -165,29 +170,30 @@ app.get('/api/get-link', async (req, res) => {
     directUrl = await getYtdlDownloadUrl(videoId, fmt);
   }
 
-  if (directUrl) {
+  if (directUrl && !directUrl.includes('youtubepp.com')) {
     return res.json({
       success: true,
+      isDirectMedia: true,
       downloadUrl: `/api/download?id=${videoId}&format=${fmt}`,
       directUrl: directUrl,
       videoId: videoId
     });
   }
 
-  // Fallback to top working mirror
+  // Fallback web mirror (Y2Mate)
   const fallbackUrl = `https://www.youtubepp.com/watch?v=${videoId}`;
   return res.json({
     success: true,
+    isDirectMedia: false,
     downloadUrl: fallbackUrl,
     directUrl: fallbackUrl,
-    isFallback: true,
     videoId: videoId
   });
 });
 
-// API endpoint to stream or redirect the file download
+// API endpoint to stream file download with proper attachment headers
 app.get('/api/download', async (req, res) => {
-  const { id, format = 'mp4', title = 'youtube-video' } = req.query;
+  const { id, format = 'mp4', title = 'video' } = req.query;
   const videoId = extractVideoId(id as string);
 
   if (!videoId) {
@@ -208,52 +214,43 @@ app.get('/api/download', async (req, res) => {
 
   if (directUrl) {
     try {
-      // Pipe stream from media URL with Content-Disposition attachment so browser downloads directly!
       const mediaResponse = await fetch(directUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         }
       });
 
-      if (mediaResponse.ok && mediaResponse.body) {
-        const contentType = fmt === 'mp3' ? 'audio/mpeg' : 'video/mp4';
+      const contentType = mediaResponse.headers.get('content-type') || '';
+
+      // Check if response is actually a media stream (not an HTML error/web page)
+      if (mediaResponse.ok && mediaResponse.body && !contentType.includes('text/html')) {
+        const mimeType = fmt === 'mp3' ? 'audio/mpeg' : 'video/mp4';
         const filename = encodeURIComponent(`${cleanTitle}.${ext}`);
 
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${filename}`);
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${cleanTitle}.${ext}"; filename*=UTF-8''${filename}`);
 
         if (mediaResponse.headers.get('content-length')) {
           res.setHeader('Content-Length', mediaResponse.headers.get('content-length')!);
         }
 
-        // Convert web ReadableStream to node stream or pipe bytes
         const reader = mediaResponse.body.getReader();
-        const pump = async () => {
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(Buffer.from(value));
-            }
-            res.end();
-          } catch (streamErr) {
-            console.error('Error streaming download response:', streamErr);
-            if (!res.headersSent) {
-              res.redirect(directUrl!);
-            }
-          }
-        };
-        return pump();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          res.write(Buffer.from(value));
+        }
+        return res.end();
       }
     } catch (e) {
-      console.warn('Proxy streaming error, falling back to direct redirect:', e);
+      console.warn('Proxy streaming error:', e);
     }
 
-    // Direct redirect if stream piping fails
+    // Direct redirect if stream piping fails but we have direct URL
     return res.redirect(directUrl);
   }
 
-  // Final fallback: redirect to y2mate downloader page
+  // If no direct media link could be extracted, DO NOT return html, redirect user to Y2Mate page
   return res.redirect(`https://www.youtubepp.com/watch?v=${videoId}`);
 });
 
