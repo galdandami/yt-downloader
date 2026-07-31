@@ -1,0 +1,6 @@
+{
+  "name": "YouTube Video Downloader",
+  "description": "Download YouTube videos and shorts with video previews, thumbnail generation, and multi-format MP4 download options.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
