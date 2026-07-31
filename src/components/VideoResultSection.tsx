@@ -39,17 +39,20 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
   const handleMainDownload = async () => {
     setIsDownloading(true);
     try {
-      const result = await getDirectDownloadLinkClient(videoInfo.id, activeFormat, videoInfo.title);
-      const downloadUrl = result.url || `/api/download?id=${videoInfo.id}&format=${activeFormat}&title=${encodeURIComponent(videoInfo.title)}`;
+      const downloadUrl = `/api/download?id=${videoInfo.id}&format=${activeFormat}&title=${encodeURIComponent(videoInfo.title)}`;
       
-      // Open download URL or conversion redirect safely in new tab to avoid corrupt local file saves
-      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+      // Trigger native browser file download directly from our server without redirecting or opening new tabs
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `${videoInfo.title}.${activeFormat}`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     } catch (err) {
       console.warn('Download error:', err);
-      const fallbackUrl = `https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoInfo.id}`)}`;
-      window.open(fallbackUrl, '_blank', 'noopener,noreferrer');
     } finally {
-      setTimeout(() => setIsDownloading(false), 1500);
+      setTimeout(() => setIsDownloading(false), 2000);
     }
   };
 

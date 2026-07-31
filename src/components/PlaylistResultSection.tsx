@@ -359,8 +359,7 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
               <div className="flex items-center space-x-1.5 shrink-0">
                 <a
                   href={directMp4Url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  download={`${item.title}.mp4`}
                   className="px-2.5 py-1.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-bold flex items-center space-x-1 transition-all shadow-sm"
                   title="Скачать MP4 Видео"
                 >
@@ -370,8 +369,7 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
 
                 <a
                   href={directMp3Url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  download={`${item.title}.mp3`}
                   className="px-2.5 py-1.5 rounded-xl bg-purple-600/80 hover:bg-purple-500 text-white text-[11px] font-bold flex items-center space-x-1 transition-all shadow-sm"
                   title="Скачать MP3 Аудио"
                 >

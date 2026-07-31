@@ -272,8 +272,19 @@ app.get('/api/download', async (req, res) => {
     }
   }
 
-  // If direct server proxy stream fails or is blocked by YouTube, redirect to SaveFrom conversion page
-  return res.redirect(saveFromUrl);
+  // If direct server proxy stream fails or is blocked by YouTube, return clean error message instead of redirecting to external sites
+  return res.status(503).send(`
+    <html>
+      <head><title>Ошибка скачивания</title><meta charset="utf-8"></head>
+      <body style="font-family:sans-serif; background:#0f172a; color:#f8fafc; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; text-align:center;">
+        <div style="max-width:480px; padding:32px; background:#1e293b; border-radius:16px; border:1px solid #334155;">
+          <h2 style="color:#ef4444; margin-top:0;">⚠️ Временная недоступность потока</h2>
+          <p style="color:#94a3b8; line-height:1.6;">Сервер YouTube временно ограничил прямую передачу этого файла. Пожалуйста, вернитесь на сайт и попробуйте выбрать другое качество или формат MP3.</p>
+          <button onclick="window.close()" style="margin-top:16px; padding:10px 24px; background:#2563eb; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Закрыть</button>
+        </div>
+      </body>
+    </html>
+  `);
 });
 
 async function startServer() {
