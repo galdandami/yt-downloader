@@ -5,7 +5,7 @@ import { PlaylistResultSection } from './components/PlaylistResultSection';
 import { DownloadHistory } from './components/DownloadHistory';
 import { PwaPromptModal } from './components/PwaPromptModal';
 import { YouTubeVideoInfo, YouTubePlaylistInfo, HistoryItem } from './types';
-import { fetchVideoInfo, fetchPlaylistInfo, isYouTubePlaylist } from './utils/youtube';
+import { fetchVideoInfo, fetchPlaylistInfo, isYouTubePlaylist, extractYouTubeId } from './utils/youtube';
 
 const HISTORY_STORAGE_KEY = 'yt_downloader_history_v1';
 
@@ -90,9 +90,21 @@ export default function App() {
 
     try {
       if (isYouTubePlaylist(url)) {
-        const pInfo = await fetchPlaylistInfo(url);
-        setPlaylistInfo(pInfo);
-        savePlaylistToHistory(pInfo);
+        try {
+          const pInfo = await fetchPlaylistInfo(url);
+          setPlaylistInfo(pInfo);
+          savePlaylistToHistory(pInfo);
+        } catch (playlistErr) {
+          // If playlist fetch failed, but link has a single video ID, fallback to video fetch
+          const videoId = extractYouTubeId(url);
+          if (videoId) {
+            const vInfo = await fetchVideoInfo(url);
+            setVideoInfo(vInfo);
+            saveVideoToHistory(vInfo);
+          } else {
+            throw playlistErr;
+          }
+        }
       } else {
         const vInfo = await fetchVideoInfo(url);
         setVideoInfo(vInfo);

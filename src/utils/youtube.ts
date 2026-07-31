@@ -1,6 +1,26 @@
 import { YouTubeVideoInfo, YouTubePlaylistInfo, PlaylistItem } from '../types';
 
 /**
+ * Helper to perform fetch with a strict timeout to prevent infinite pending promises
+ */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 4000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return response;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+/**
  * Parses YouTube Video ID from various URL formats:
  * - https://www.youtube.com/watch?v=VIDEO_ID
  * - https://youtu.be/VIDEO_ID
@@ -41,7 +61,12 @@ export function extractPlaylistId(input: string): string | null {
 
   const match = trimmed.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
   if (match && match[1]) {
-    return match[1];
+    const listId = match[1];
+    // Ignore private system playlists: WL (Watch Later), LL (Liked Videos)
+    if (listId === 'WL' || listId === 'LL') {
+      return null;
+    }
+    return listId;
   }
 
   if (trimmed.startsWith('PL') || trimmed.startsWith('UU') || trimmed.startsWith('FL') || trimmed.startsWith('RD')) {
@@ -73,7 +98,7 @@ export function isYouTubePlaylist(url: string): boolean {
 export async function fetchVideoInfo(input: string): Promise<YouTubeVideoInfo> {
   const videoId = extractYouTubeId(input);
   if (!videoId) {
-    throw new Error('Invalid YouTube URL or Video ID. Please enter a valid YouTube link.');
+    throw new Error('Недействительная ссылка на YouTube или ID видео. Пожалуйста, введите корректную ссылку.');
   }
 
   const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -82,13 +107,13 @@ export async function fetchVideoInfo(input: string): Promise<YouTubeVideoInfo> {
   const embedUrl = `https://www.youtube.com/embed/${videoId}`;
   const isShort = isYouTubeShorts(input);
 
-  let title = `YouTube Video (${videoId})`;
-  let authorName = 'YouTube Creator';
+  let title = `Видео YouTube (${videoId})`;
+  let authorName = 'Канал YouTube';
 
   try {
-    // Attempt oEmbed API fetch
+    // Attempt oEmbed API fetch with 3.5s timeout
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(cleanUrl)}&format=json`;
-    const response = await fetch(oembedUrl);
+    const response = await fetchWithTimeout(oembedUrl, {}, 3500);
     if (response.ok) {
       const data = await response.json();
       if (data.title) {
@@ -99,7 +124,7 @@ export async function fetchVideoInfo(input: string): Promise<YouTubeVideoInfo> {
       }
     }
   } catch (err) {
-    console.warn('oEmbed fetch failed, using fallback title', err);
+    console.warn('oEmbed fetch failed or timed out, using fallback title', err);
   }
 
   return {
@@ -121,11 +146,11 @@ export async function fetchVideoInfo(input: string): Promise<YouTubeVideoInfo> {
 export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistInfo> {
   const playlistId = extractPlaylistId(input);
   if (!playlistId) {
-    throw new Error('Invalid YouTube Playlist URL or Playlist ID.');
+    throw new Error('Недействительная ссылка на плейлист YouTube.');
   }
 
-  let title = `YouTube Playlist (${playlistId})`;
-  let authorName = 'YouTube Channel';
+  let title = `Плейлист YouTube (${playlistId})`;
+  let authorName = 'Канал YouTube';
   let items: PlaylistItem[] = [];
 
   // Try fetching from Invidious / Piped public API mirrors first
@@ -137,7 +162,7 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
 
   for (const mirrorUrl of apiMirrors) {
     try {
-      const res = await fetch(mirrorUrl);
+      const res = await fetchWithTimeout(mirrorUrl, {}, 3000);
       if (res.ok) {
         const data = await res.json();
         if (data && (data.title || data.videos)) {
@@ -148,7 +173,7 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
           if (Array.isArray(rawVideos) && rawVideos.length > 0) {
             items = rawVideos.map((v: any, index: number) => {
               const videoId = v.videoId || v.id || extractYouTubeId(v.url || '');
-              const videoTitle = v.title || `Track ${index + 1}`;
+              const videoTitle = v.title || `Трек ${index + 1}`;
               const author = v.author || v.uploaderName || authorName;
               return {
                 id: videoId,
@@ -166,7 +191,7 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
         }
       }
     } catch (e) {
-      console.warn('API mirror failed, trying next fallback:', mirrorUrl, e);
+      console.warn('API mirror failed or timed out:', mirrorUrl, e);
     }
   }
 
@@ -175,7 +200,7 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
     try {
       const rssUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`;
       const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
-      const rssRes = await fetch(proxyUrl);
+      const rssRes = await fetchWithTimeout(proxyUrl, {}, 3500);
       
       if (rssRes.ok) {
         const xmlText = await rssRes.text();
@@ -193,7 +218,7 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
           items = entries.map((entry, index) => {
             const videoId = entry.querySelector('videoId')?.textContent || 
                             entry.querySelector('id')?.textContent?.replace('yt:video:', '') || '';
-            const entryTitle = entry.querySelector('title')?.textContent || `Video ${index + 1}`;
+            const entryTitle = entry.querySelector('title')?.textContent || `Видео ${index + 1}`;
             const entryAuthor = entry.querySelector('author name')?.textContent || authorName;
             return {
               id: videoId,
@@ -217,8 +242,8 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
     const singleVideoId = extractYouTubeId(input);
     if (singleVideoId) {
       const singleInfo = await fetchVideoInfo(input);
-      title = `Playlist (${singleInfo.title})`;
-      authorName = singleInfo.authorName || 'YouTube Channel';
+      title = `Плейлист (${singleInfo.title})`;
+      authorName = singleInfo.authorName || 'Канал YouTube';
       items = [
         {
           id: singleInfo.id,
@@ -231,7 +256,7 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
         }
       ];
     } else {
-      throw new Error('Unable to load playlist tracks. Please verify the playlist link is public.');
+      throw new Error('Не удалось загрузить треки плейлиста. Убедитесь, что ссылка ведет на публичный плейлист.');
     }
   }
 
