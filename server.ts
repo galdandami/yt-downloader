@@ -170,7 +170,7 @@ app.get('/api/get-link', async (req, res) => {
     directUrl = await getYtdlDownloadUrl(videoId, fmt);
   }
 
-  if (directUrl && !directUrl.includes('youtubepp.com')) {
+  if (directUrl) {
     return res.json({
       success: true,
       isDirectMedia: true,
@@ -180,8 +180,8 @@ app.get('/api/get-link', async (req, res) => {
     });
   }
 
-  // Fallback web mirror (Y2Mate)
-  const fallbackUrl = `https://www.youtubepp.com/watch?v=${videoId}`;
+  // Fallback web mirror (SaveFrom)
+  const fallbackUrl = `https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${videoId}`;
   return res.json({
     success: true,
     isDirectMedia: false,
@@ -250,8 +250,8 @@ app.get('/api/download', async (req, res) => {
     return res.redirect(directUrl);
   }
 
-  // If no direct media link could be extracted, DO NOT return html, redirect user to Y2Mate page
-  return res.redirect(`https://www.youtubepp.com/watch?v=${videoId}`);
+  // If no direct media link could be extracted, redirect user to SaveFrom page
+  return res.redirect(`https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${videoId}`);
 });
 
 async function startServer() {

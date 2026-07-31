@@ -348,8 +348,8 @@ export async function getDirectDownloadLinkClient(videoId: string, format: 'mp4'
     }
   }
 
-  // Fallback to Y2Mate conversion page URL
-  return { url: `https://www.youtubepp.com/watch?v=${videoId}`, isDirect: false };
+  // Fallback to working SaveFrom conversion page URL
+  return { url: `https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${videoId}`, isDirect: false };
 }
 
 /**
@@ -372,43 +372,45 @@ export interface DownloadMirror {
  */
 export function getDownloadMirrorUrls(videoId: string, format: 'mp4' | 'mp3' = 'mp4'): DownloadMirror[] {
   const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const encodedYtUrl = encodeURIComponent(ytUrl);
+
   return [
     {
-      name: 'Y2Mate',
-      url: `https://www.youtubepp.com/watch?v=${videoId}`,
-      description: 'Быстрое скачивание MP4 и MP3',
+      name: 'SaveFrom.net',
+      url: `https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=${encodedYtUrl}`,
+      description: 'Мгновенное скачивание MP4 / MP3',
       badge: 'Сервер 1'
     },
     {
-      name: 'SaveFrom',
-      url: `https://www.ssyoutube.com/watch?v=${videoId}`,
-      description: 'Прямая загрузка без программ',
+      name: 'Y2Mate.com',
+      url: `https://www.y2mate.com/youtube/${videoId}`,
+      description: 'Выбор качества и аудиотреков',
       badge: 'Сервер 2'
     },
     {
-      name: '10Downloader',
-      url: `https://10downloader.com/download?v=${videoId}`,
-      description: 'Высокое качество видео',
+      name: 'SnapSave',
+      url: `https://snapsave.io/ru?url=${encodedYtUrl}`,
+      description: 'Высокая скорость загрузки',
       badge: 'Сервер 3'
     },
     {
       name: 'Loader.to',
-      url: `https://loader.to/api/card/?url=${encodeURIComponent(ytUrl)}&f=${format}`,
-      description: 'Облачная конвертация',
+      url: `https://loader.to/en108/youtube-${format}-downloader.html?link=${encodedYtUrl}`,
+      description: 'Облачная конвертация 1080p / 4K / MP3',
       badge: 'Сервер 4'
     }
   ];
 }
 
 /**
- * Legacy Vevioz fallback compatibility (now using Y2Mate mirror)
+ * Legacy Vevioz fallback compatibility (now using SaveFrom mirror)
  */
 export function getVeviozMp4Url(videoId: string): string {
-  return `https://www.youtubepp.com/watch?v=${videoId}`;
+  return `https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${videoId}`;
 }
 
 export function getVeviozMp3Url(videoId: string): string {
-  return `https://www.youtubepp.com/watch?v=${videoId}`;
+  return `https://www.y2mate.com/youtube/${videoId}`;
 }
 
 
