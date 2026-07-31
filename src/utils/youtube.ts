@@ -275,12 +275,17 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
 }
 
 /**
- * Tries Cobalt API and Invidious instances directly from client browser
- * Returns direct media stream URL or converter page fallback
+ * Tries Cobalt API, Invidious local=true, Piped, and server proxy to get direct MP4/MP3 media stream URL
  */
-export async function getDirectDownloadLinkClient(videoId: string, format: 'mp4' | 'mp3' = 'mp4'): Promise<{ url: string; isDirect: boolean }> {
+export async function getDirectDownloadLinkClient(
+  videoId: string,
+  format: 'mp4' | 'mp3' = 'mp4',
+  videoTitle: string = 'video'
+): Promise<{ url: string; isDirect: boolean }> {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  
+  const cleanTitle = videoTitle.replace(/[^a-zA-Z0-9_\-\u0400-\u04FF ]/g, '').trim() || 'video';
+
+  // 1. Try Cobalt API instances
   const cobaltInstances = [
     'https://api.cobalt.tools/',
     'https://co.wuk.sh/',
@@ -302,12 +307,12 @@ export async function getDirectDownloadLinkClient(videoId: string, format: 'mp4'
           audioFormat: 'mp3',
           youtubeVideoCodec: 'h264'
         })
-      }, 4000);
+      }, 3500);
 
       if (res.ok) {
         const data = await res.json();
         if (data) {
-          if ((data.status === 'redirect' || data.status === 'stream') && data.url) {
+          if ((data.status === 'redirect' || data.status === 'stream' || data.status === 'tunnel') && data.url) {
             return { url: data.url, isDirect: true };
           }
           if (data.url && typeof data.url === 'string') {
@@ -319,27 +324,49 @@ export async function getDirectDownloadLinkClient(videoId: string, format: 'mp4'
         }
       }
     } catch (e) {
-      console.warn('Client Cobalt fetch failed:', instance, e);
+      // ignore
     }
   }
 
-  // Try client-side Invidious stream extraction
+  // 2. Try Invidious local=true stream URLs
   const invidiousInstances = [
     'https://invidious.nerdvpn.de',
     'https://inv.riverside.rocks',
-    'https://invidious.drgns.space'
+    'https://invidious.drgns.space',
+    'https://inv.tux.pizza'
   ];
 
   for (const instance of invidiousInstances) {
     try {
-      const res = await fetchWithTimeout(`${instance}/api/v1/videos/${videoId}`, {}, 3500);
+      const itag = format === 'mp3' ? '140' : '22';
+      const streamUrl = `${instance}/latest_version?id=${videoId}&itag=${itag}&local=true`;
+      
+      const headRes = await fetchWithTimeout(streamUrl, { method: 'HEAD' }, 2500);
+      if (headRes.ok || headRes.status === 302 || headRes.status === 200) {
+        return { url: streamUrl, isDirect: true };
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // 3. Try Piped API streams
+  const pipedInstances = [
+    'https://api.piped.video',
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.mha.fi'
+  ];
+
+  for (const instance of pipedInstances) {
+    try {
+      const res = await fetchWithTimeout(`${instance}/streams/${videoId}`, {}, 3000);
       if (res.ok) {
         const data = await res.json();
-        if (format === 'mp3' && Array.isArray(data.adaptiveFormats)) {
-          const audio = data.adaptiveFormats.find((f: any) => f.type?.includes('audio') && f.url);
+        if (format === 'mp3' && Array.isArray(data.audioStreams)) {
+          const audio = data.audioStreams.find((f: any) => f.url && (f.mimeType?.includes('audio') || f.format === 'M4A'));
           if (audio?.url) return { url: audio.url, isDirect: true };
-        } else if (Array.isArray(data.formatStreams) && data.formatStreams.length > 0) {
-          const video = data.formatStreams.find((f: any) => f.url && f.container === 'mp4') || data.formatStreams[0];
+        } else if (Array.isArray(data.videoStreams)) {
+          const video = data.videoStreams.find((f: any) => f.url && f.mimeType?.includes('video/mp4')) || data.videoStreams[0];
           if (video?.url) return { url: video.url, isDirect: true };
         }
       }
@@ -348,8 +375,11 @@ export async function getDirectDownloadLinkClient(videoId: string, format: 'mp4'
     }
   }
 
-  // Fallback to working SaveFrom conversion page URL
-  return { url: `https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${videoId}`, isDirect: false };
+  // 4. Default to our backend proxy server /api/download
+  return {
+    url: `/api/download?id=${videoId}&format=${format}&title=${encodeURIComponent(cleanTitle)}`,
+    isDirect: true
+  };
 }
 
 /**

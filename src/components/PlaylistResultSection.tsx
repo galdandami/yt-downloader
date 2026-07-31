@@ -301,8 +301,8 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
       <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
         {filteredItems.map((item, index) => {
           const isSelected = selectedIds.has(item.id);
-          const saveFromMp4Url = `https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${item.id}`;
-          const y2mateMp3Url = `https://www.y2mate.com/youtube/${item.id}`;
+          const directMp4Url = `/api/download?id=${item.id}&format=mp4&title=${encodeURIComponent(item.title)}`;
+          const directMp3Url = `/api/download?id=${item.id}&format=mp3&title=${encodeURIComponent(item.title)}`;
 
           return (
             <div
@@ -358,22 +358,20 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
               {/* Action Download Buttons */}
               <div className="flex items-center space-x-1.5 shrink-0">
                 <a
-                  href={saveFromMp4Url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={directMp4Url}
+                  download={`${item.title}.mp4`}
                   className="px-2.5 py-1.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-bold flex items-center space-x-1 transition-all shadow-sm"
-                  title="Скачать MP4 Видеочерез SaveFrom"
+                  title="Скачать MP4 Видео"
                 >
                   <Film className="w-3 h-3" />
                   <span>MP4</span>
                 </a>
 
                 <a
-                  href={y2mateMp3Url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={directMp3Url}
+                  download={`${item.title}.mp3`}
                   className="px-2.5 py-1.5 rounded-xl bg-purple-600/80 hover:bg-purple-500 text-white text-[11px] font-bold flex items-center space-x-1 transition-all shadow-sm"
-                  title="Скачать MP3 Аудио через Y2Mate"
+                  title="Скачать MP3 Аудио"
                 >
                   <Music className="w-3 h-3" />
                   <span>MP3</span>

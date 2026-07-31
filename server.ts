@@ -82,34 +82,50 @@ async function getCobaltDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): Pro
   return null;
 }
 
-// 2. Invidious API instance stream provider
+// 2. Invidious API local proxy stream provider
 async function getInvidiousDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): Promise<string | null> {
   const invidiousInstances = [
     'https://invidious.nerdvpn.de',
     'https://inv.riverside.rocks',
     'https://invidious.drgns.space',
-    'https://vid.puffyan.us'
+    'https://inv.tux.pizza'
   ];
 
   for (const instance of invidiousInstances) {
     try {
-      const res = await fetchWithTimeout(`${instance}/api/v1/videos/${videoId}`, {}, 3500);
+      const itag = format === 'mp3' ? '140' : '22';
+      const streamUrl = `${instance}/latest_version?id=${videoId}&itag=${itag}&local=true`;
+      
+      const headRes = await fetchWithTimeout(streamUrl, { method: 'HEAD' }, 3500);
+      if (headRes.ok || headRes.status === 302 || headRes.status === 200) {
+        return streamUrl;
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  return null;
+}
+
+// 3. Piped API stream provider
+async function getPipedDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): Promise<string | null> {
+  const pipedInstances = [
+    'https://api.piped.video',
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.mha.fi'
+  ];
+
+  for (const instance of pipedInstances) {
+    try {
+      const res = await fetchWithTimeout(`${instance}/streams/${videoId}`, {}, 3500);
       if (res.ok) {
         const data = await res.json();
-        if (format === 'mp3') {
-          if (Array.isArray(data.adaptiveFormats)) {
-            const audioStream = data.adaptiveFormats.find((f: any) => f.type?.includes('audio') && f.url);
-            if (audioStream?.url) return audioStream.url;
-          }
-        } else {
-          if (Array.isArray(data.formatStreams) && data.formatStreams.length > 0) {
-            const videoStream = data.formatStreams.find((f: any) => f.url && f.container === 'mp4') || data.formatStreams[0];
-            if (videoStream?.url) return videoStream.url;
-          }
-          if (Array.isArray(data.adaptiveFormats)) {
-            const videoStream = data.adaptiveFormats.find((f: any) => f.type?.includes('video/mp4') && f.url);
-            if (videoStream?.url) return videoStream.url;
-          }
+        if (format === 'mp3' && Array.isArray(data.audioStreams)) {
+          const audio = data.audioStreams.find((s: any) => s.url && (s.mimeType?.includes('audio') || s.format === 'M4A'));
+          if (audio?.url) return audio.url;
+        } else if (Array.isArray(data.videoStreams)) {
+          const video = data.videoStreams.find((s: any) => s.url && s.mimeType?.includes('video/mp4')) || data.videoStreams[0];
+          if (video?.url) return video.url;
         }
       }
     } catch (e) {
@@ -119,7 +135,7 @@ async function getInvidiousDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): 
   return null;
 }
 
-// 3. Distube ytdl-core provider
+// 4. Distube ytdl-core provider
 async function getYtdlDownloadUrl(videoId: string, format: 'mp4' | 'mp3'): Promise<string | null> {
   try {
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -167,27 +183,24 @@ app.get('/api/get-link', async (req, res) => {
     directUrl = await getInvidiousDownloadUrl(videoId, fmt);
   }
   if (!directUrl) {
+    directUrl = await getPipedDownloadUrl(videoId, fmt);
+  }
+  if (!directUrl) {
     directUrl = await getYtdlDownloadUrl(videoId, fmt);
   }
 
   if (directUrl) {
     return res.json({
       success: true,
-      isDirectMedia: true,
       downloadUrl: `/api/download?id=${videoId}&format=${fmt}`,
       directUrl: directUrl,
       videoId: videoId
     });
   }
 
-  // Fallback web mirror (SaveFrom)
-  const fallbackUrl = `https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${videoId}`;
-  return res.json({
-    success: true,
-    isDirectMedia: false,
-    downloadUrl: fallbackUrl,
-    directUrl: fallbackUrl,
-    videoId: videoId
+  return res.status(404).json({
+    success: false,
+    error: 'Не удалось получить прямую ссылку для видео'
   });
 });
 
@@ -207,6 +220,9 @@ app.get('/api/download', async (req, res) => {
   let directUrl = await getCobaltDownloadUrl(videoId, fmt);
   if (!directUrl) {
     directUrl = await getInvidiousDownloadUrl(videoId, fmt);
+  }
+  if (!directUrl) {
+    directUrl = await getPipedDownloadUrl(videoId, fmt);
   }
   if (!directUrl) {
     directUrl = await getYtdlDownloadUrl(videoId, fmt);
@@ -250,8 +266,8 @@ app.get('/api/download', async (req, res) => {
     return res.redirect(directUrl);
   }
 
-  // If no direct media link could be extracted, redirect user to SaveFrom page
-  return res.redirect(`https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D${videoId}`);
+  // If no direct link could be fetched by server, return 404 text
+  return res.status(500).send('Unable to stream video file directly. Please try again.');
 });
 
 async function startServer() {

@@ -38,25 +38,27 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
   const handleMainDownload = async () => {
     setIsDownloading(true);
     try {
-      const result = await getDirectDownloadLinkClient(videoInfo.id, activeFormat);
-      if (result.isDirect && result.url) {
-        // Direct media file URL from Cobalt/Invidious!
-        const link = document.createElement('a');
-        link.href = result.url;
-        link.target = '_blank';
-        link.rel = 'noopener,noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        // Reliable converter mirror page
-        window.open(result.url || mainMirrorUrl, '_blank', 'noopener,noreferrer');
-      }
+      const result = await getDirectDownloadLinkClient(videoInfo.id, activeFormat, videoInfo.title);
+      const downloadUrl = result.url || `/api/download?id=${videoInfo.id}&format=${activeFormat}&title=${encodeURIComponent(videoInfo.title)}`;
+      
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', `${videoInfo.title}.${activeFormat}`);
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err) {
       console.warn('Download error:', err);
-      window.open(mainMirrorUrl, '_blank', 'noopener,noreferrer');
+      const fallbackUrl = `/api/download?id=${videoInfo.id}&format=${activeFormat}&title=${encodeURIComponent(videoInfo.title)}`;
+      const link = document.createElement('a');
+      link.href = fallbackUrl;
+      link.setAttribute('download', `${videoInfo.title}.${activeFormat}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } finally {
-      setTimeout(() => setIsDownloading(false), 1500);
+      setTimeout(() => setIsDownloading(false), 2000);
     }
   };
 
