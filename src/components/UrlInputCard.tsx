@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Youtube, Link, Clipboard, X, ArrowRight, Loader2, AlertCircle, Sparkles, ListVideo } from 'lucide-react';
+import { Youtube, Link, Clipboard, X, ArrowRight, Loader2, AlertCircle, Sparkles } from 'lucide-react';
 
 interface UrlInputCardProps {
   onFetchVideo: (url: string) => void;
@@ -7,12 +7,6 @@ interface UrlInputCardProps {
   errorMessage: string | null;
   onClearError: () => void;
 }
-
-const SAMPLE_URLS = [
-  { label: '🎵 Видео Клип', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-  { label: '⚡ Shorts Видео', url: 'https://www.youtube.com/shorts/3i_p4O4B_fE' },
-  { label: '🎶 Плейлист', url: 'https://www.youtube.com/playlist?list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG' },
-];
 
 export const UrlInputCard: React.FC<UrlInputCardProps> = ({
   onFetchVideo,
@@ -43,12 +37,6 @@ export const UrlInputCard: React.FC<UrlInputCardProps> = ({
   const handleClear = () => {
     setInputUrl('');
     onClearError();
-  };
-
-  const handleSampleClick = (url: string) => {
-    setInputUrl(url);
-    onClearError();
-    onFetchVideo(url);
   };
 
   return (
@@ -143,24 +131,6 @@ export const UrlInputCard: React.FC<UrlInputCardProps> = ({
           )}
         </button>
       </form>
-
-      {/* Quick Try Samples */}
-      <div className="relative z-10 mt-6 pt-6 border-t border-white/10">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 text-center mb-3">
-          Быстрые примеры для проверки
-        </p>
-        <div className="flex flex-wrap justify-center gap-2">
-          {SAMPLE_URLS.map((sample, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSampleClick(sample.url)}
-              className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium border border-white/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
-            >
-              {sample.label}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };

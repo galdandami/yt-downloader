@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header';
 import { UrlInputCard } from './components/UrlInputCard';
 import { VideoResultSection } from './components/VideoResultSection';
 import { PlaylistResultSection } from './components/PlaylistResultSection';
@@ -7,7 +6,6 @@ import { DownloadHistory } from './components/DownloadHistory';
 import { PwaPromptModal } from './components/PwaPromptModal';
 import { YouTubeVideoInfo, YouTubePlaylistInfo, HistoryItem } from './types';
 import { fetchVideoInfo, fetchPlaylistInfo, isYouTubePlaylist } from './utils/youtube';
-import { Shield, Zap, Smartphone, ListVideo } from 'lucide-react';
 
 const HISTORY_STORAGE_KEY = 'yt_downloader_history_v1';
 
@@ -156,25 +154,6 @@ export default function App() {
             onSelectHistoryItem={(url) => handleFetchMedia(url)}
             onClearHistory={handleClearHistory}
           />
-
-          {/* Feature Highlights Grid */}
-          <div className="w-full max-w-2xl mx-auto mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-            <div className="p-4 rounded-2xl glass-card-sm backdrop-blur-md">
-              <Zap className="w-5 h-5 text-amber-400 mx-auto mb-2" />
-              <h4 className="text-xs font-bold text-white mb-1">Мгновенная Конвертация</h4>
-              <p className="text-[11px] text-slate-400">Высокоскоростная обработка MP4 и MP3 через облако.</p>
-            </div>
-            <div className="p-4 rounded-2xl glass-card-sm backdrop-blur-md">
-              <ListVideo className="w-5 h-5 text-indigo-400 mx-auto mb-2" />
-              <h4 className="text-xs font-bold text-white mb-1">Скачивание Плейлистов</h4>
-              <p className="text-[11px] text-slate-400">Пакетное скачивание всех треков и экспорт в .M3U.</p>
-            </div>
-            <div className="p-4 rounded-2xl glass-card-sm backdrop-blur-md">
-              <Shield className="w-5 h-5 text-emerald-400 mx-auto mb-2" />
-              <h4 className="text-xs font-bold text-white mb-1">100% Бесплатно и Безопасно</h4>
-              <p className="text-[11px] text-slate-400">Без установки программ и без регистрации.</p>
-            </div>
-          </div>
         </main>
 
         {/* Footer */}
