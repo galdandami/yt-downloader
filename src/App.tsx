@@ -128,11 +128,8 @@ export default function App() {
       </div>
 
       <div className="relative z-10 flex-1 flex flex-col">
-        {/* Navigation Header */}
-        <Header onShowPwaModal={() => setShowPwaModal(true)} />
-
         {/* Main Content Area */}
-        <main className="container mx-auto px-4 py-4 flex-1 flex flex-col items-center justify-center">
+        <main className="container mx-auto px-4 pt-10 pb-4 flex-1 flex flex-col items-center justify-center">
           {/* Centered URL Card */}
           <UrlInputCard
             onFetchVideo={handleFetchMedia}
