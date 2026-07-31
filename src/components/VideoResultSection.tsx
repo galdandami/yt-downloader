@@ -39,20 +39,23 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
   const handleMainDownload = async () => {
     setIsDownloading(true);
     try {
-      const downloadUrl = `/api/download?id=${videoInfo.id}&format=${activeFormat}&title=${encodeURIComponent(videoInfo.title)}`;
-      
-      // Trigger native browser file download directly from our server without redirecting or opening new tabs
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = `${videoInfo.title}.${activeFormat}`;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const widgetElem = document.getElementById('converter-widget');
+      if (widgetElem) {
+        widgetElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        const downloadUrl = `/api/download?id=${videoInfo.id}&format=${activeFormat}&title=${encodeURIComponent(videoInfo.title)}`;
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `${videoInfo.title}.${activeFormat}`;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     } catch (err) {
       console.warn('Download error:', err);
     } finally {
-      setTimeout(() => setIsDownloading(false), 2000);
+      setTimeout(() => setIsDownloading(false), 1200);
     }
   };
 
@@ -251,7 +254,7 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
       </div>
 
       {/* Embedded Converter Card */}
-      <div className="mt-8 pt-6 border-t border-white/10">
+      <div id="converter-widget" className="mt-8 pt-6 border-t border-white/10 scroll-mt-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2 text-xs font-semibold text-slate-300">
             <Sparkles className="w-4 h-4 text-purple-400" />
