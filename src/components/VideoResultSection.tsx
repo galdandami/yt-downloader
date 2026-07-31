@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   Loader2,
   Server,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 import { YouTubeVideoInfo } from '../types';
 import { getDirectDownloadLinkClient, getDownloadMirrorUrls } from '../utils/youtube';
@@ -205,6 +206,15 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
                 </>
               )}
             </button>
+          </div>
+
+          {/* Quality & Playability Notice */}
+          <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-[11px] text-indigo-200 flex items-start space-x-2">
+            <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold block text-white mb-0.5">💡 Чтобы скачанный MP4 открывался без ошибок:</span>
+              Нажмите кнопку скачивания или используйте интерактивный виджет выбора качества (1080p, 720p, MP3) ниже. Видео объединяется с аудио в формат MP4 (H.264 + AAC), который открывается во всех плеерах.
+            </div>
           </div>
 
           {/* Secondary Actions */}
