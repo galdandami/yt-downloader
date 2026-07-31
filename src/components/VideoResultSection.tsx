@@ -11,10 +11,11 @@ import {
   Share2,
   ShieldCheck,
   Loader2,
-  Server
+  Server,
+  Sparkles
 } from 'lucide-react';
 import { YouTubeVideoInfo } from '../types';
-import { getDirectDownloadLink, getDownloadMirrorUrls } from '../utils/youtube';
+import { getDirectDownloadLinkClient, getDownloadMirrorUrls } from '../utils/youtube';
 
 interface VideoResultSectionProps {
   videoInfo: YouTubeVideoInfo | null;
@@ -37,30 +38,25 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
   const handleMainDownload = async () => {
     setIsDownloading(true);
     try {
-      const res = await fetch(`/api/get-link?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoInfo.id}`)}&format=${activeFormat}`);
-      const data = await res.json();
-
-      if (data && data.success) {
-        if (data.isDirectMedia && data.downloadUrl) {
-          // Direct media stream available! Trigger browser attachment download
-          const link = document.createElement('a');
-          link.href = data.downloadUrl + `&title=${encodeURIComponent(videoInfo.title)}`;
-          link.setAttribute('download', `${videoInfo.title}.${activeFormat}`);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } else {
-          // Fallback converter page
-          window.open(data.directUrl || mainMirrorUrl, '_blank', 'noopener,noreferrer');
-        }
+      const result = await getDirectDownloadLinkClient(videoInfo.id, activeFormat);
+      if (result.isDirect && result.url) {
+        // Direct media file URL from Cobalt/Invidious!
+        const link = document.createElement('a');
+        link.href = result.url;
+        link.target = '_blank';
+        link.rel = 'noopener,noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       } else {
-        window.open(mainMirrorUrl, '_blank', 'noopener,noreferrer');
+        // Reliable converter mirror page
+        window.open(result.url || mainMirrorUrl, '_blank', 'noopener,noreferrer');
       }
     } catch (err) {
-      console.warn('Download trigger error, fallback to mirror', err);
+      console.warn('Download error:', err);
       window.open(mainMirrorUrl, '_blank', 'noopener,noreferrer');
     } finally {
-      setTimeout(() => setIsDownloading(false), 2000);
+      setTimeout(() => setIsDownloading(false), 1500);
     }
   };
 
@@ -95,6 +91,8 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
       setImgSrc(videoInfo.fallbackThumbnailUrl);
     }
   };
+
+  const loaderEmbedUrl = `https://loader.to/api/card/?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoInfo.id}`)}&f=${activeFormat}`;
 
   return (
     <motion.section
@@ -205,7 +203,7 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
               {isDownloading ? (
                 <>
                   <Loader2 className="w-6 h-6 animate-spin text-white" />
-                  <span>Подготовка файла...</span>
+                  <span>Получение прямой ссылки...</span>
                 </>
               ) : (
                 <>
@@ -247,14 +245,35 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
         </div>
       </div>
 
-      {/* Alternative Download Servers */}
+      {/* Embedded Converter Card */}
       <div className="mt-8 pt-6 border-t border-white/10">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2 text-xs font-semibold text-slate-300">
+            <Sparkles className="w-4 h-4 text-purple-400" />
+            <span>Интерактивный Виджет Конвертации (Loader.to)</span>
+          </div>
+          <span className="text-[11px] text-slate-400">Выбор качества и моментальное скачивание</span>
+        </div>
+
+        <div className="w-full bg-slate-950/80 rounded-2xl border border-white/10 overflow-hidden shadow-inner p-2">
+          <iframe
+            key={`${videoInfo.id}-${activeFormat}`}
+            src={loaderEmbedUrl}
+            title="Interactive Downloader"
+            className="w-full h-56 border-0 rounded-xl"
+            scrolling="no"
+          />
+        </div>
+      </div>
+
+      {/* Alternative Download Servers */}
+      <div className="mt-6 pt-4 border-t border-white/10">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2 text-xs font-semibold text-slate-300">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Альтернативные Серверы Скачивания</span>
+            <span>Запасные Зеркала Скачивания</span>
           </div>
-          <span className="text-[11px] text-slate-400">Выберите подходящий зеркальный сервер</span>
+          <span className="text-[11px] text-slate-400">Быстрые внешние серверы</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

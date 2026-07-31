@@ -275,10 +275,12 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
 }
 
 /**
- * Tries Cobalt API instances to fetch a direct downloadable link (MP4 / MP3)
+ * Tries Cobalt API and Invidious instances directly from client browser
+ * Returns direct media stream URL or converter page fallback
  */
-export async function getDirectDownloadLink(videoId: string, format: 'mp4' | 'mp3'): Promise<string> {
+export async function getDirectDownloadLinkClient(videoId: string, format: 'mp4' | 'mp3' = 'mp4'): Promise<{ url: string; isDirect: boolean }> {
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  
   const cobaltInstances = [
     'https://api.cobalt.tools/',
     'https://co.wuk.sh/',
@@ -295,28 +297,67 @@ export async function getDirectDownloadLink(videoId: string, format: 'mp4' | 'mp
         },
         body: JSON.stringify({
           url: videoUrl,
-          videoQuality: '1080',
+          videoQuality: '720',
           downloadMode: format === 'mp3' ? 'audio' : 'video',
-          audioFormat: format === 'mp3' ? 'mp3' : undefined,
+          audioFormat: 'mp3',
+          youtubeVideoCodec: 'h264'
         })
       }, 4000);
 
       if (res.ok) {
         const data = await res.json();
-        if (data && (data.url || data.picker)) {
-          if (data.url) return data.url;
+        if (data) {
+          if ((data.status === 'redirect' || data.status === 'stream') && data.url) {
+            return { url: data.url, isDirect: true };
+          }
+          if (data.url && typeof data.url === 'string') {
+            return { url: data.url, isDirect: true };
+          }
           if (Array.isArray(data.picker) && data.picker.length > 0 && data.picker[0].url) {
-            return data.picker[0].url;
+            return { url: data.picker[0].url, isDirect: true };
           }
         }
       }
     } catch (e) {
-      console.warn('Cobalt instance failed:', instance, e);
+      console.warn('Client Cobalt fetch failed:', instance, e);
     }
   }
 
-  // Fallback to top working redirect mirror
-  return `https://www.youtubepp.com/watch?v=${videoId}`;
+  // Try client-side Invidious stream extraction
+  const invidiousInstances = [
+    'https://invidious.nerdvpn.de',
+    'https://inv.riverside.rocks',
+    'https://invidious.drgns.space'
+  ];
+
+  for (const instance of invidiousInstances) {
+    try {
+      const res = await fetchWithTimeout(`${instance}/api/v1/videos/${videoId}`, {}, 3500);
+      if (res.ok) {
+        const data = await res.json();
+        if (format === 'mp3' && Array.isArray(data.adaptiveFormats)) {
+          const audio = data.adaptiveFormats.find((f: any) => f.type?.includes('audio') && f.url);
+          if (audio?.url) return { url: audio.url, isDirect: true };
+        } else if (Array.isArray(data.formatStreams) && data.formatStreams.length > 0) {
+          const video = data.formatStreams.find((f: any) => f.url && f.container === 'mp4') || data.formatStreams[0];
+          if (video?.url) return { url: video.url, isDirect: true };
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // Fallback to Y2Mate conversion page URL
+  return { url: `https://www.youtubepp.com/watch?v=${videoId}`, isDirect: false };
+}
+
+/**
+ * Legacy wrapper
+ */
+export async function getDirectDownloadLink(videoId: string, format: 'mp4' | 'mp3'): Promise<string> {
+  const result = await getDirectDownloadLinkClient(videoId, format);
+  return result.url;
 }
 
 export interface DownloadMirror {

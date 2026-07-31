@@ -301,8 +301,7 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
       <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
         {filteredItems.map((item, index) => {
           const isSelected = selectedIds.has(item.id);
-          const mp4Url = `/api/download?id=${item.id}&format=mp4&title=${encodeURIComponent(item.title)}`;
-          const mp3Url = `/api/download?id=${item.id}&format=mp3&title=${encodeURIComponent(item.title)}`;
+          const y2mateUrl = `https://www.youtubepp.com/watch?v=${item.id}`;
 
           return (
             <div
@@ -358,7 +357,7 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
               {/* Action Download Buttons */}
               <div className="flex items-center space-x-1.5 shrink-0">
                 <a
-                  href={`/api/download?id=${item.id}&format=mp4&title=${encodeURIComponent(item.title)}`}
+                  href={y2mateUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-2.5 py-1.5 rounded-xl bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-bold flex items-center space-x-1 transition-all shadow-sm"
@@ -369,7 +368,7 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
                 </a>
 
                 <a
-                  href={`/api/download?id=${item.id}&format=mp3&title=${encodeURIComponent(item.title)}`}
+                  href={y2mateUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-2.5 py-1.5 rounded-xl bg-purple-600/80 hover:bg-purple-500 text-white text-[11px] font-bold flex items-center space-x-1 transition-all shadow-sm"
