@@ -301,8 +301,8 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
       <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
         {filteredItems.map((item, index) => {
           const isSelected = selectedIds.has(item.id);
-          const mp4Url = getDownloadMirrorUrls(item.id, 'mp4')[0].url;
-          const mp3Url = getDownloadMirrorUrls(item.id, 'mp3')[0].url;
+          const mp4Url = `/api/download?id=${item.id}&format=mp4&title=${encodeURIComponent(item.title)}`;
+          const mp3Url = `/api/download?id=${item.id}&format=mp3&title=${encodeURIComponent(item.title)}`;
 
           return (
             <div

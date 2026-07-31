@@ -37,13 +37,20 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
   const handleMainDownload = async () => {
     setIsDownloading(true);
     try {
-      const directUrl = await getDirectDownloadLink(videoInfo.id, activeFormat);
-      window.open(directUrl, '_blank', 'noopener,noreferrer');
+      const downloadEndpoint = `/api/download?id=${videoInfo.id}&format=${activeFormat}&title=${encodeURIComponent(videoInfo.title)}`;
+      
+      // Create temporary invisible anchor to trigger browser native download
+      const link = document.createElement('a');
+      link.href = downloadEndpoint;
+      link.setAttribute('download', `${videoInfo.title}.${activeFormat}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err) {
-      console.warn('Direct download fetch error, opening primary mirror', err);
+      console.warn('Download trigger error, fallback to mirror', err);
       window.open(mainMirrorUrl, '_blank', 'noopener,noreferrer');
     } finally {
-      setIsDownloading(false);
+      setTimeout(() => setIsDownloading(false), 2000);
     }
   };
 
