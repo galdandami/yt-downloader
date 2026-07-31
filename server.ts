@@ -216,6 +216,8 @@ app.get('/api/download', async (req, res) => {
   const fmt = format === 'mp3' ? 'mp3' : 'mp4';
   const cleanTitle = (title as string).replace(/[^a-zA-Z0-9_\-\u0400-\u04FF ]/g, '').trim() || 'video';
   const ext = fmt === 'mp3' ? 'mp3' : 'mp4';
+  const ytWatchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const saveFromUrl = `https://en.savefrom.net/1-youtube-video-downloader-3v0.html?url=${encodeURIComponent(ytWatchUrl)}`;
 
   let directUrl = await getCobaltDownloadUrl(videoId, fmt);
   if (!directUrl) {
@@ -237,17 +239,24 @@ app.get('/api/download', async (req, res) => {
       });
 
       const contentType = mediaResponse.headers.get('content-type') || '';
+      const contentLength = parseInt(mediaResponse.headers.get('content-length') || '0', 10);
 
-      // Check if response is actually a media stream (not an HTML error/web page)
-      if (mediaResponse.ok && mediaResponse.body && !contentType.includes('text/html')) {
+      // Verify response is actually a valid video/audio stream (not an HTML error page or short error string)
+      if (
+        mediaResponse.ok &&
+        mediaResponse.body &&
+        !contentType.includes('text/html') &&
+        !contentType.includes('application/json') &&
+        (contentLength === 0 || contentLength > 50000)
+      ) {
         const mimeType = fmt === 'mp3' ? 'audio/mpeg' : 'video/mp4';
         const filename = encodeURIComponent(`${cleanTitle}.${ext}`);
 
         res.setHeader('Content-Type', mimeType);
         res.setHeader('Content-Disposition', `attachment; filename="${cleanTitle}.${ext}"; filename*=UTF-8''${filename}`);
 
-        if (mediaResponse.headers.get('content-length')) {
-          res.setHeader('Content-Length', mediaResponse.headers.get('content-length')!);
+        if (contentLength > 0) {
+          res.setHeader('Content-Length', contentLength.toString());
         }
 
         const reader = mediaResponse.body.getReader();
@@ -261,13 +270,10 @@ app.get('/api/download', async (req, res) => {
     } catch (e) {
       console.warn('Proxy streaming error:', e);
     }
-
-    // Direct redirect if stream piping fails but we have direct URL
-    return res.redirect(directUrl);
   }
 
-  // If no direct link could be fetched by server, return 404 text
-  return res.status(500).send('Unable to stream video file directly. Please try again.');
+  // If direct server proxy stream fails or is blocked by YouTube, redirect to SaveFrom conversion page
+  return res.redirect(saveFromUrl);
 });
 
 async function startServer() {
