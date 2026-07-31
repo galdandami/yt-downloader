@@ -9,13 +9,12 @@ import {
   Copy,
   Check,
   Share2,
-  Tv,
-  Sparkles,
   ShieldCheck,
-  Smartphone
+  Loader2,
+  Server
 } from 'lucide-react';
 import { YouTubeVideoInfo } from '../types';
-import { getVeviozMp4Url, getVeviozMp3Url } from '../utils/youtube';
+import { getDirectDownloadLink, getDownloadMirrorUrls } from '../utils/youtube';
 
 interface VideoResultSectionProps {
   videoInfo: YouTubeVideoInfo | null;
@@ -27,17 +26,30 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
   const [copied, setCopied] = useState(false);
   const [activeFormat, setActiveFormat] = useState<'mp4' | 'mp3'>('mp4');
   const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   if (!videoInfo) return null;
 
   const currentThumbnail = imgSrc || videoInfo.thumbnailUrl;
-  const veviozMp4 = getVeviozMp4Url(videoInfo.id);
-  const veviozMp3 = getVeviozMp3Url(videoInfo.id);
-  const activeDownloadUrl = activeFormat === 'mp4' ? veviozMp4 : veviozMp3;
+  const mirrors = getDownloadMirrorUrls(videoInfo.id, activeFormat);
+  const mainMirrorUrl = mirrors[0].url;
+
+  const handleMainDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const directUrl = await getDirectDownloadLink(videoInfo.id, activeFormat);
+      window.open(directUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.warn('Direct download fetch error, opening primary mirror', err);
+      window.open(mainMirrorUrl, '_blank', 'noopener,noreferrer');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(activeDownloadUrl);
+      await navigator.clipboard.writeText(mainMirrorUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -50,8 +62,8 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
       try {
         await navigator.share({
           title: videoInfo.title,
-          text: `Download ${videoInfo.title} in MP4/MP3 format!`,
-          url: activeDownloadUrl,
+          text: `Download ${videoInfo.title} in MP4/MP3!`,
+          url: mainMirrorUrl,
         });
       } catch (err) {
         console.log('Share canceled', err);
@@ -62,7 +74,6 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
   };
 
   const handleImageError = () => {
-    // Fall back to HQ thumbnail if MaxRes returns 404
     if (currentThumbnail !== videoInfo.fallbackThumbnailUrl) {
       setImgSrc(videoInfo.fallbackThumbnailUrl);
     }
@@ -76,7 +87,7 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className="w-full max-w-2xl mx-auto mt-6 glass-card p-6 sm:p-8 shadow-2xl overflow-hidden relative text-slate-100"
     >
-      {/* Decorative top badge */}
+      {/* Top Status */}
       <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
         <div className="flex items-center space-x-2">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -167,20 +178,26 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
             </button>
           </div>
 
-          {/* PRIMARY DOWNLOAD MP4 BUTTON WITH SUBTLE PULSING ANIMATION */}
+          {/* MAIN DOWNLOAD BUTTON */}
           <div className="pt-2">
-            <a
-              href={activeDownloadUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="dl-pulse relative group w-full flex items-center justify-center space-x-3 bg-gradient-to-r from-red-600 via-rose-600 to-indigo-600 hover:from-red-500 hover:to-indigo-500 text-white font-extrabold text-lg py-4 px-6 rounded-2xl shadow-xl transition-all duration-300 transform active:scale-[0.98] overflow-hidden"
+            <button
+              onClick={handleMainDownload}
+              disabled={isDownloading}
+              className="dl-pulse relative group w-full flex items-center justify-center space-x-3 bg-gradient-to-r from-red-600 via-rose-600 to-indigo-600 hover:from-red-500 hover:to-indigo-500 text-white font-extrabold text-lg py-4 px-6 rounded-2xl shadow-xl transition-all duration-300 transform active:scale-[0.98] overflow-hidden disabled:opacity-75"
             >
-              <Download className="w-6 h-6 animate-bounce" />
-              <span>
-                Скачать {activeFormat.toUpperCase()}
-              </span>
-              <ExternalLink className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" />
-            </a>
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin text-white" />
+                  <span>Подготовка файла...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-6 h-6 animate-bounce" />
+                  <span>Скачать {activeFormat.toUpperCase()}</span>
+                  <ExternalLink className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" />
+                </>
+              )}
+            </button>
           </div>
 
           {/* Secondary Actions */}
@@ -213,25 +230,45 @@ export const VideoResultSection: React.FC<VideoResultSectionProps> = ({ videoInf
         </div>
       </div>
 
-      {/* Embedded Vevioz Conversion Widget Frame */}
+      {/* Alternative Download Servers */}
       <div className="mt-8 pt-6 border-t border-white/10">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2 text-xs font-semibold text-slate-300">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Прямой Сервер Конвертации Vevioz</span>
+            <span>Альтернативные Серверы Скачивания</span>
           </div>
-          <span className="text-[11px] text-slate-400">Облачный Движок</span>
+          <span className="text-[11px] text-slate-400">Выберите подходящий зеркальный сервер</span>
         </div>
 
-        <div className="w-full bg-black/40 rounded-2xl border border-white/10 overflow-hidden shadow-inner p-2 min-h-[120px] flex items-center justify-center">
-          <iframe
-            src={activeDownloadUrl}
-            title="Vevioz Download Button"
-            className="w-full h-28 border-0 rounded-xl"
-            scrolling="no"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {mirrors.map((mirror, index) => (
+            <a
+              key={index}
+              href={mirror.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between group transition-all"
+            >
+              <div className="flex items-center space-x-2.5 min-w-0 pr-2">
+                <Server className="w-4 h-4 text-purple-400 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white group-hover:text-purple-300 transition-colors flex items-center space-x-1.5">
+                    <span className="truncate">{mirror.name}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] bg-purple-500/20 text-purple-300 font-semibold shrink-0">
+                      {mirror.badge}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                    {mirror.description}
+                  </div>
+                </div>
+              </div>
+              <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-white shrink-0 transition-colors" />
+            </a>
+          ))}
         </div>
       </div>
     </motion.section>
   );
 };
+

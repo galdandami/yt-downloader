@@ -17,7 +17,7 @@ import {
   Play
 } from 'lucide-react';
 import { YouTubePlaylistInfo, PlaylistItem } from '../types';
-import { getVeviozMp4Url, getVeviozMp3Url } from '../utils/youtube';
+import { getDownloadMirrorUrls, getDirectDownloadLink } from '../utils/youtube';
 
 interface PlaylistResultSectionProps {
   playlistInfo: YouTubePlaylistInfo | null;
@@ -68,8 +68,7 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
   // Batch download opening handler
   const handleBatchDownload = () => {
     targetItems.forEach((item, index) => {
-      const url = selectedFormat === 'mp4' ? getVeviozMp4Url(item.id) : getVeviozMp3Url(item.id);
-      // Stagger window open to prevent popup blocker blocking all
+      const url = getDownloadMirrorUrls(item.id, selectedFormat)[0].url;
       setTimeout(() => {
         window.open(url, '_blank', 'noopener,noreferrer');
       }, index * 400);
@@ -79,7 +78,7 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
   const handleCopyAllLinks = async () => {
     const links = targetItems
       .map((item) =>
-        `${item.title}\n${selectedFormat === 'mp4' ? getVeviozMp4Url(item.id) : getVeviozMp3Url(item.id)}`
+        `${item.title}\n${getDownloadMirrorUrls(item.id, selectedFormat)[0].url}`
       )
       .join('\n\n');
 
@@ -95,7 +94,7 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
   const handleExportM3u = () => {
     let content = '#EXTM3U\n';
     targetItems.forEach((item) => {
-      const dlUrl = selectedFormat === 'mp4' ? getVeviozMp4Url(item.id) : getVeviozMp3Url(item.id);
+      const dlUrl = getDownloadMirrorUrls(item.id, selectedFormat)[0].url;
       content += `#EXTINF:-1,${item.title}\n${dlUrl}\n`;
     });
 
@@ -302,8 +301,8 @@ export const PlaylistResultSection: React.FC<PlaylistResultSectionProps> = ({
       <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
         {filteredItems.map((item, index) => {
           const isSelected = selectedIds.has(item.id);
-          const mp4Url = getVeviozMp4Url(item.id);
-          const mp3Url = getVeviozMp3Url(item.id);
+          const mp4Url = getDownloadMirrorUrls(item.id, 'mp4')[0].url;
+          const mp3Url = getDownloadMirrorUrls(item.id, 'mp3')[0].url;
 
           return (
             <div

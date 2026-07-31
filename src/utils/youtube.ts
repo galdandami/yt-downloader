@@ -275,16 +275,99 @@ export async function fetchPlaylistInfo(input: string): Promise<YouTubePlaylistI
 }
 
 /**
- * Constructs Vevioz download API button URL
+ * Tries Cobalt API instances to fetch a direct downloadable link (MP4 / MP3)
  */
-export function getVeviozMp4Url(videoId: string): string {
-  return `https://api.vevioz.com/@api/button/mp4/${videoId}`;
+export async function getDirectDownloadLink(videoId: string, format: 'mp4' | 'mp3'): Promise<string> {
+  const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const cobaltInstances = [
+    'https://api.cobalt.tools/',
+    'https://co.wuk.sh/',
+    'https://cobalt.api.scno.co/'
+  ];
+
+  for (const instance of cobaltInstances) {
+    try {
+      const res = await fetchWithTimeout(instance, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: videoUrl,
+          videoQuality: '1080',
+          downloadMode: format === 'mp3' ? 'audio' : 'video',
+          audioFormat: format === 'mp3' ? 'mp3' : undefined,
+        })
+      }, 4000);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && (data.url || data.picker)) {
+          if (data.url) return data.url;
+          if (Array.isArray(data.picker) && data.picker.length > 0 && data.picker[0].url) {
+            return data.picker[0].url;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Cobalt instance failed:', instance, e);
+    }
+  }
+
+  // Fallback to top working redirect mirror
+  return `https://www.youtubepp.com/watch?v=${videoId}`;
+}
+
+export interface DownloadMirror {
+  name: string;
+  url: string;
+  description: string;
+  badge: string;
 }
 
 /**
- * Constructs Vevioz MP3 audio download URL
+ * Returns top working alternative download server links
  */
-export function getVeviozMp3Url(videoId: string): string {
-  return `https://api.vevioz.com/@api/button/mp3/${videoId}`;
+export function getDownloadMirrorUrls(videoId: string, format: 'mp4' | 'mp3' = 'mp4'): DownloadMirror[] {
+  const ytUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  return [
+    {
+      name: 'Y2Mate',
+      url: `https://www.youtubepp.com/watch?v=${videoId}`,
+      description: 'Быстрое скачивание MP4 и MP3',
+      badge: 'Сервер 1'
+    },
+    {
+      name: 'SaveFrom',
+      url: `https://www.ssyoutube.com/watch?v=${videoId}`,
+      description: 'Прямая загрузка без программ',
+      badge: 'Сервер 2'
+    },
+    {
+      name: '10Downloader',
+      url: `https://10downloader.com/download?v=${videoId}`,
+      description: 'Высокое качество видео',
+      badge: 'Сервер 3'
+    },
+    {
+      name: 'Loader.to',
+      url: `https://loader.to/api/card/?url=${encodeURIComponent(ytUrl)}&f=${format}`,
+      description: 'Облачная конвертация',
+      badge: 'Сервер 4'
+    }
+  ];
 }
+
+/**
+ * Legacy Vevioz fallback compatibility (now using Y2Mate mirror)
+ */
+export function getVeviozMp4Url(videoId: string): string {
+  return `https://www.youtubepp.com/watch?v=${videoId}`;
+}
+
+export function getVeviozMp3Url(videoId: string): string {
+  return `https://www.youtubepp.com/watch?v=${videoId}`;
+}
+
 
